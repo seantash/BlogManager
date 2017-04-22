@@ -1,0 +1,4 @@
+export PATH=/usr/lib/x86_64-linux-gnu
+export PATH=/usr/lib/debug/usr/lib/x86_64-linux-gnu:$PATH
+export PATH=/bin:$PATH
+export PATH=/usr/bin:$PATH
