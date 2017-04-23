@@ -6,7 +6,7 @@ INCLUDES = -I/.
 #L../lib
 LFLAGS = 
 
-LIBS = -lpthread
+LIBS = -lpthread -lresolv
 
 SRCS_FILES = BlogManagerApp.cpp
 
