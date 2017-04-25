@@ -9,7 +9,7 @@ const unsigned int HTTPClientMsg::HTTP_GET = 0xFE;
 const unsigned int HTTPClientMsg::HTTP_POST = 0xFD;
 
 
-HTTPClientMsg::HTTPClientMsg( int type, sem_t* reqDoneSem, const char* host, const char* page, const char* outFilePath) : m_type(type), m_reqDoneSem(reqDoneSem), m_nextMsg(0)
+HTTPClientMsg::HTTPClientMsg( int type, sem_t* reqDoneSem, const char* host, const char* page, const char* outFilePath) 
 {
     int hostLen = strlen(host);
     m_host = new char[hostLen];    
@@ -22,6 +22,9 @@ HTTPClientMsg::HTTPClientMsg( int type, sem_t* reqDoneSem, const char* host, con
     int filePathLen = strlen(host);
     m_outFilePath = new char[filePathLen]; 
     memcpy(m_outFilePath, outFilePath, filePathLen);
+    m_type = type;
+    m_reqDoneSem = reqDoneSem;
+    m_nextMsg = 0;
 }
 
 HTTPClientMsg::~HTTPClientMsg()

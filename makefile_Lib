@@ -1,0 +1,47 @@
+CC = g++
+CFLAGS = -Wall -g
+CFLAGS_LIBS	= -fPIC	-Wall -Wextra -O2 -g
+
+INCLUDES +=	\
+	-I.	\
+	-I./BM_RESTServices	\
+	-I./BM_HTTPClient \
+
+LFLAGS = 
+LDFLAGS	 = -shared 
+
+D_LIBS = -lctest
+
+TARGET_LIB = BlogServices.so
+
+LIB_SRCS_FILES += \
+	BM_RESTServices/PostInfo.cpp \
+	BM_RESTServices/PostList.cpp \
+	BM_RESTServices/PostServices.cpp \
+	BM_HTTPClient/BlogManHTTPClient.cpp	\
+	BM_HTTPClient/HTTPClientMsg.cpp	\
+	
+LIB_OBJS = $(LIB_SRCS_FILES:.cpp=.o)
+
+.PHONY:	depend clean
+
+Lib: $(TARGET_LIB)
+	cat ./BlogServices.so  > ./libs/libBlogServices.so
+	cat ./BlogServices.so  > ./libs/BlogServices.so
+	export LD_LIBRARY_PATH=./libs:$LD_LIBRARY_PATH
+	sudo ldconfig
+	$(CC) $(CFLAGS)	$(INCLUDES)	-L/./libs BlogManagerApp.cpp -lBlogServices	 -o	-lpthread
+	  
+$(TARGET_LIB): $(LIB_OBJS)
+	$(CC) $(LDFLAGS)	$(INCLUDES)	-o $(TARGET_LIB) $(LIB_OBJS) $(LDFLAGS)	
+	
+.cpp.o:
+		$(CC) $(CFLAGS_LIBS)	$(INCLUDES)	-c $<  -o $@
+
+clean:
+		$(RM) ./*.o	*~ $(MAIN) $(TARGET_LIB) ./BM_RESTServices/*.o	./BM_HTTPClient/*.o	./*.so.* BlogManagerApp	./libs/*.* ./libs/*
+
+depend:	$(LIB_SRCS_FILES)
+		makedepend $(INCLUDES) $^
+				
+# End of Makefile
