@@ -27,12 +27,13 @@ BlogManHTTPClient* sysHttpClient = 0;
 
 #define IP_STRING_LENGTH    16
 
-BlogManHTTPClient::BlogManHTTPClient(): m_socket(0)
+BlogManHTTPClient::BlogManHTTPClient()
 {
     m_prcsMsgSem = new sem_t;
     m_queLock = new pthread_mutex_t;
     m_msgQueue = 0;
     m_threadActive = true;
+    m_socket = 0;
 }
 
 BlogManHTTPClient::~BlogManHTTPClient()
@@ -146,7 +147,7 @@ char* BlogManHTTPClient::buildGetPostsMsg(const char *host, const char *page)
     const char *msgOutline = "GET /%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: %s\r\n\r\n";
     
     //need to subtract by 5 for all the %s plus string terminator
-    int msgLen = (strlen(host)+strlen(page)+strlen("HTMLGET 1.1")+strlen(msgOutline)-5);
+    int msgLen = (strlen(host) + strlen(page) + strlen("HTMLGET 1.1") + strlen(msgOutline)-5);
     
     httpMsg = (char *)new char[msgLen];
     sprintf(httpMsg, msgOutline, page, host, "HTMLGET 1.1");
@@ -216,9 +217,6 @@ void BlogManHTTPClient::processQueue()
                     
                     rspMsgfile.close ();
                     sem_post(msg->m_reqDoneSem);
-                }
-                else
-                {
                 }
             }
             else if (msgType == HTTPClientMsg::HTTP_POST)

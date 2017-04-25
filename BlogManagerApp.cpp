@@ -36,7 +36,6 @@ int main()
     {
         // Request the blog posts via http client
         httpMsg = new  HTTPClientMsg( HTTPClientMsg::HTTP_GET, httpReqCompleteSem, "demo7701733.mockable.io", "posts", POSTS_HTTP_GET_RSP_FILE);
-        
         httpClient->queueMsg( httpMsg );
     }
 

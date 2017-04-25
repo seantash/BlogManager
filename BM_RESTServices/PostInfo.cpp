@@ -5,9 +5,13 @@
 using namespace std;
 
 
-PostInfo::PostInfo ( int userId, int id, char* title, char* body): m_userId(userId), m_id(id), m_nextPost(0), m_title(title), m_body(body)
+PostInfo::PostInfo ( int userId, int id, char* title, char* body)
 {
- 
+    m_userId = userId; 
+    m_id = id;
+    m_nextPost = 0;
+    m_title = title; 
+    m_body = body;
 }
 
 PostInfo::~PostInfo ( void )
