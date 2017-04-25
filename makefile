@@ -1,14 +1,23 @@
 CC = g++
 CFLAGS = -Wall -g
 
-INCLUDES = -I/.	
+INCLUDES += \
+    -I.	\
+    -I./BM_RESTServices \
+    -I./BM_HTTPClient \
 
 #L../lib
 LFLAGS = 
 
-LIBS = -lpthread -lresolv
+LIBS = -lpthread
 
-SRCS_FILES = BlogManagerApp.cpp
+SRCS_FILES += \
+    BM_RESTServices/PostInfo.cpp \
+    BM_RESTServices/PostList.cpp \
+    BM_RESTServices/PostServices.cpp \
+    BM_HTTPClient/BlogManHTTPClient.cpp \
+    BM_HTTPClient/HTTPClientMsg.cpp \
+    BlogManagerApp.cpp \
 
 OBJS = $(SRCS_FILES:.cpp=.o)
 

@@ -1,0 +1,234 @@
+
+
+#include <HTTPClientThread.h>
+#include <HTTPClientMsg.h>
+#include <iostream>
+#include <queue>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <semaphore.h>
+#include <stdlib.h>
+#include <cstdlib>
+#include <stdio.h>
+#include <string.h>
+#include <fstream>
+#include <thread>
+
+using namespace std;
+
+#define IP_STRING_LENGTH    16
+#define HTTP_CLIENT_THREAD  "httpClientThread"
+
+//typedef void* (HTTPClientThread::*FnPtrType)(void *threadid);
+
+HTTPClientThread::HTTPClientThread(): m_threadActive(true), m_socket(0)
+{
+    m_threadId = HTTP_CLIENT_THREAD;
+    m_threadInfo = new pthread_t;
+    m_prcsMsgSem = new sem_t;
+    m_queLock = new pthread_mutex_t ;
+    m_msgQueue = 0;
+}
+
+HTTPClientThread::~HTTPClientThread()
+{
+    m_threadActive = false;
+    m_thread.join();
+
+    delete m_threadInfo;
+    delete m_prcsMsgSem;
+    delete m_queLock;
+    delete m_msgQueue;
+
+}
+
+bool HTTPClientThread::init()
+{
+    m_thread = new std::thread(&HTTPClientThread::httpThreadMain,this);
+    
+    //if (pthread_create(m_threadInfo, NULL, (void* (*)(void*))&HTTPClientThread::httpThreadMain, (void *)m_threadId))
+    //{
+    //    m_threadActive = false;
+    //    cout << "HTTPClientThread::init Error: Unable to create thread." << endl;
+    //}
+    
+    if (sem_init(m_prcsMsgSem, 0, 0) == -1)
+    {
+        cout << "HTTPClientThread::init Error: Unable to init semaphore." << endl;
+        m_threadActive = false;
+    }
+    
+    return m_threadActive;
+}
+
+bool HTTPClientThread::connectToServer(char* host)
+{
+    bool retVal = true;
+    m_socket = socket(AF_INET, SOCK_STREAM, 0);
+    
+    if(m_socket < 0)
+    {
+        cout<<"HTTPClientThread::connectToServer Error: Creating socket failed!" << endl;
+        retVal = false;
+    }
+
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(80);
+    inet_aton(getIP(host), &addr.sin_addr);
+
+    if(connect(m_socket, (sockaddr*)&addr, sizeof(addr)) != 0)
+    {
+        cout<<"HTTPClientThread::connectToServer Error: Connecting to server failed!"<< endl;
+        retVal = false;
+    }
+    
+    return retVal;
+}
+
+bool HTTPClientThread::queueMsg(HTTPClientMsg* msg)
+{
+    bool retVal = true;
+
+    pthread_mutex_lock(m_queLock);
+    
+    msg->m_reqDoneSem = new sem_t;
+
+    if (sem_init(msg->m_reqDoneSem, 0, 0) == -1)
+    { 
+        cout <<"HTTPClientThread::queueMsg - sem_init failed!"<< endl; 
+        delete msg;
+        retVal = false;
+    }
+    else
+    {
+ cout <<"HTTPClientThread::queueMsg - sem_init!"<< endl; 
+        
+        // Queue Msg
+        m_msgQueue = msg;
+        sem_post(m_prcsMsgSem);
+        
+        sem_wait(msg->m_reqDoneSem);
+    }
+    
+    pthread_mutex_unlock(m_queLock);
+    
+    return retVal;
+}
+
+HTTPClientMsg* HTTPClientThread::dequeueMsg()
+{
+    HTTPClientMsg* msg = 0;
+    
+    pthread_mutex_lock(m_queLock);
+    
+    // Dequeue Msg
+    msg = m_msgQueue;
+    m_msgQueue = 0;
+    pthread_mutex_unlock(m_queLock);
+    
+    return msg;
+}
+
+char* HTTPClientThread::buildGetPostsMsg(const char *host, const char *page)
+{
+    char *httpMsg;
+    const char *msgOutline = "GET /%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: %s\r\n\r\n";
+    
+    //need to subtract by 5 for all the %s plus string terminator
+    int msgLen = (strlen(host)+strlen(page)+strlen("HTMLGET 1.1")+strlen(msgOutline)-5);
+    
+    httpMsg = (char *)new char[msgLen];
+    sprintf(httpMsg, msgOutline, page, host, "HTMLGET 1.1");
+    return httpMsg;
+}
+
+char* HTTPClientThread::getIP(char *host)
+{
+    struct hostent *hent;
+    char *ip = (char *)new char[IP_STRING_LENGTH];
+    memset(ip, 0, IP_STRING_LENGTH);
+    
+    if((hent = gethostbyname(host)) == NULL)
+    {
+       cout<<"Couldn't find IP"<<endl;
+    }
+    
+    if(inet_ntop(AF_INET, (void *)hent->h_addr_list[0], ip, IP_STRING_LENGTH) == NULL)
+    {
+       cout<<"Can't resolve host"<<endl;
+    }
+    
+    return ip;
+}
+
+void* HTTPClientThread::httpThreadMain(void *threadid)
+{
+    unsigned int msgType = HTTPClientMsg::HTTP_INVALID;
+    cout<<"HTTPClientThread::main Starting with Valid Thread ID = " << m_threadActive <<endl;
+        
+    while(m_threadActive)
+    {
+    cout<<"sem_wait(m_prcsMsgSem) after " << threadid <<endl;
+        
+        sem_wait(m_prcsMsgSem);
+    cout<<"sem_wait(m_prcsMsgSem) after " << threadid <<endl;
+
+        HTTPClientMsg* msg = dequeueMsg();
+
+        if(msg != 0)
+        {
+            if(msgType == HTTPClientMsg::HTTP_GET)
+            { 
+                if(connectToServer(msg->m_host))
+                {
+                    ofstream rspMsgfile;
+
+                    char *getMsg = buildGetPostsMsg(msg->m_host, msg->m_page);
+                    char response[8192];
+                    send(m_socket, getMsg, strlen(getMsg), 0);
+                    rspMsgfile.open (msg->m_outFilePath);
+                    
+                    if (rspMsgfile.is_open()) 
+                    { 
+                       
+                        // We know the size so one time read from socket is good enough
+                        if(recv(m_socket, response, 8192, 0 ) > 0)
+                        {
+                            rspMsgfile<<response;
+                        }
+                        else
+                        {
+                            cout<<"Socket read Error!" << endl;
+                        }
+                    }
+                    else
+                    {
+                        cout<<"HTTPClientThread::main Error: oprning file to save server response failed!" << endl;
+                    }
+                    
+                    rspMsgfile.close ();
+                    sem_post(msg->m_reqDoneSem);
+                }
+                else
+                {
+                }
+            }
+            else if (msgType == HTTPClientMsg::HTTP_POST)
+            {
+                cout<<"HTTPClientThread::main Error: Post Message are not supported!" << endl;
+            }
+            else
+            {
+                cout<<"HTTPClientThread::main Error: Received unknown message!" << endl;
+            }
+            
+            delete msg;
+        }
+    }
+    pthread_exit(NULL);
+}
